@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { FileUpload } from "@/components/FileUpload";
 import { MemoryCard } from "@/components/MemoryCard";
 import { MemoryViewer } from "@/components/MemoryViewer";
 import { Timeline } from "@/components/Timeline";
+import { AmbientMode } from "@/components/AmbientMode";
+import { DarkModeToggle } from "@/components/DarkModeToggle";
 import { Memory } from "@/types/memory";
 import { getMockMemories } from "@/services/mockDataService";
-import { Brain, Upload, Clock, Heart, ArrowRight } from "lucide-react";
+import { exportMemoryBookPDF } from "@/services/pdfExportService";
+import { Brain, Upload, Clock, Heart, ArrowRight, Tv, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type ViewMode = "landing" | "upload" | "memories" | "timeline";
 
@@ -15,6 +19,16 @@ const Index = () => {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [ambientModeOpen, setAmbientModeOpen] = useState(false);
+  const { toast } = useToast();
+
+  // Initialize theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem("theme");
+    if (savedTheme === "dark") {
+      document.documentElement.classList.add("dark");
+    }
+  }, []);
 
   const handleEnterDemoMode = () => {
     const mockMemories = getMockMemories();
@@ -49,9 +63,43 @@ const Index = () => {
     }
   };
 
+  const handleUpdateNotes = (memoryId: string, notes: string) => {
+    setMemories((prev) =>
+      prev.map((m) => (m.id === memoryId ? { ...m, userNotes: notes } : m))
+    );
+    if (selectedMemory?.id === memoryId) {
+      setSelectedMemory({ ...selectedMemory, userNotes: notes });
+    }
+    toast({
+      title: "Notes saved",
+      description: "Your personal notes have been saved.",
+    });
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      await exportMemoryBookPDF(memories);
+      toast({
+        title: "Memory book exported",
+        description: "Your PDF has been downloaded successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to generate PDF. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (viewMode === "landing") {
     return (
       <div className="min-h-screen">
+        {/* Header with dark mode toggle */}
+        <header className="absolute top-4 right-4 z-50">
+          <DarkModeToggle />
+        </header>
+
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-gradient-to-br from-background via-primary/5 to-secondary/10 py-20 px-4">
           <div className="max-w-6xl mx-auto text-center">
@@ -150,6 +198,9 @@ const Index = () => {
   if (viewMode === "upload") {
     return (
       <div className="min-h-screen py-12 px-4">
+        <header className="absolute top-4 right-4">
+          <DarkModeToggle />
+        </header>
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h1 className="mb-4 text-foreground">Upload Your Memories</h1>
@@ -176,12 +227,35 @@ const Index = () => {
   if (viewMode === "timeline") {
     return (
       <div className="min-h-screen py-12 px-4">
+        <header className="absolute top-4 right-4">
+          <DarkModeToggle />
+        </header>
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-12">
             <h1 className="text-foreground">Memory Timeline</h1>
-            <Button variant="outline" onClick={() => setViewMode("memories")} className="text-base">
-              Grid View
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setAmbientModeOpen(true)} 
+                className="text-base"
+                aria-label="Start ambient mode"
+              >
+                <Tv className="w-5 h-5 mr-2" />
+                Ambient Mode
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportPDF} 
+                className="text-base"
+                aria-label="Export as PDF"
+              >
+                <Download className="w-5 h-5 mr-2" />
+                Export PDF
+              </Button>
+              <Button variant="outline" onClick={() => setViewMode("memories")} className="text-base">
+                Grid View
+              </Button>
+            </div>
           </div>
 
           <Timeline memories={memories} onMemoryClick={handleMemoryClick} />
@@ -195,6 +269,13 @@ const Index = () => {
           onPrevious={handlePreviousMemory}
           hasNext={currentMemoryIndex < memories.length - 1}
           hasPrevious={currentMemoryIndex > 0}
+          onUpdateNotes={handleUpdateNotes}
+        />
+
+        <AmbientMode
+          memories={memories}
+          isOpen={ambientModeOpen}
+          onClose={() => setAmbientModeOpen(false)}
         />
       </div>
     );
@@ -202,6 +283,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen py-12 px-4">
+      <header className="absolute top-4 right-4">
+        <DarkModeToggle />
+      </header>
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-12">
           <div>
@@ -210,14 +294,34 @@ const Index = () => {
               {memories.length} memories reconstructed
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setViewMode("timeline")}
-            className="text-base"
-          >
-            <Clock className="w-5 h-5 mr-2" />
-            Timeline View
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setAmbientModeOpen(true)}
+              className="text-base"
+              aria-label="Start ambient mode"
+            >
+              <Tv className="w-5 h-5 mr-2" />
+              Ambient
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleExportPDF}
+              className="text-base"
+              aria-label="Export as PDF"
+            >
+              <Download className="w-5 h-5 mr-2" />
+              Export
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setViewMode("timeline")}
+              className="text-base"
+            >
+              <Clock className="w-5 h-5 mr-2" />
+              Timeline
+            </Button>
+          </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -237,6 +341,13 @@ const Index = () => {
         onPrevious={handlePreviousMemory}
         hasNext={currentMemoryIndex < memories.length - 1}
         hasPrevious={currentMemoryIndex > 0}
+        onUpdateNotes={handleUpdateNotes}
+      />
+
+      <AmbientMode
+        memories={memories}
+        isOpen={ambientModeOpen}
+        onClose={() => setAmbientModeOpen(false)}
       />
     </div>
   );

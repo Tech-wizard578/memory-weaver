@@ -16,6 +16,7 @@ export interface Memory {
   people?: string[];
   emotions?: string[];
   category?: string;
+  userNotes?: string;
 }
 
 export interface MemoryPhoto {
