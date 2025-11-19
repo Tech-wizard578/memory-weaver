@@ -3,6 +3,8 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X, Calendar, MapPin } from "lucide-react";
 import { format } from "date-fns";
+import { VoiceNarration } from "./VoiceNarration";
+import { MemoryNotes } from "./MemoryNotes";
 
 interface MemoryViewerProps {
   memory: Memory | null;
@@ -12,6 +14,7 @@ interface MemoryViewerProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  onUpdateNotes?: (memoryId: string, notes: string) => void;
 }
 
 export const MemoryViewer = ({
@@ -22,8 +25,15 @@ export const MemoryViewer = ({
   onNext,
   hasPrevious,
   hasNext,
+  onUpdateNotes,
 }: MemoryViewerProps) => {
   if (!memory) return null;
+
+  const handleSaveNotes = (notes: string) => {
+    if (onUpdateNotes) {
+      onUpdateNotes(memory.id, notes);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -70,8 +80,14 @@ export const MemoryViewer = ({
               {memory.narrative}
             </p>
 
+            <div className="mb-6">
+              <VoiceNarration 
+                text={`${memory.title}. ${memory.narrative}`}
+              />
+            </div>
+
             {memory.emotions && memory.emotions.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 mb-6">
                 {memory.emotions.map((emotion) => (
                   <span
                     key={emotion}
@@ -82,6 +98,11 @@ export const MemoryViewer = ({
                 ))}
               </div>
             )}
+
+            <MemoryNotes 
+              notes={memory.userNotes}
+              onSave={handleSaveNotes}
+            />
           </div>
 
           <div className="flex justify-between p-4 border-t border-border">
@@ -91,6 +112,7 @@ export const MemoryViewer = ({
               onClick={onPrevious}
               disabled={!hasPrevious}
               className="text-base"
+              aria-label="View previous memory"
             >
               <ChevronLeft className="w-5 h-5 mr-2" />
               Previous Memory
@@ -101,6 +123,7 @@ export const MemoryViewer = ({
               onClick={onNext}
               disabled={!hasNext}
               className="text-base"
+              aria-label="View next memory"
             >
               Next Memory
               <ChevronRight className="w-5 h-5 ml-2" />
