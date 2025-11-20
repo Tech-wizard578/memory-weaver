@@ -6,20 +6,31 @@ import { MemoryViewer } from "@/components/MemoryViewer";
 import { Timeline } from "@/components/Timeline";
 import { AmbientMode } from "@/components/AmbientMode";
 import { DarkModeToggle } from "@/components/DarkModeToggle";
+import { MapView } from "@/components/MapView";
+import { Statistics } from "@/components/Statistics";
+import { PeopleTagging } from "@/components/PeopleTagging";
+import { SearchFilter } from "@/components/SearchFilter";
 import { Memory } from "@/types/memory";
 import { getMockMemories } from "@/services/mockDataService";
 import { exportMemoryBookPDF } from "@/services/pdfExportService";
-import { Brain, Upload, Clock, Heart, ArrowRight, Tv, Download } from "lucide-react";
+import { 
+  Brain, Upload, Clock, Heart, ArrowRight, Tv, Download, 
+  Map, BarChart3, Users, Grid3X3, Menu, X, AlertCircle
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Card } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-type ViewMode = "landing" | "upload" | "memories" | "timeline";
+type ViewMode = "landing" | "upload" | "memories" | "timeline" | "map" | "statistics" | "people";
 
 const Index = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("landing");
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [filteredMemories, setFilteredMemories] = useState<Memory[]>([]);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [ambientModeOpen, setAmbientModeOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { toast } = useToast();
 
   // Initialize theme on mount
@@ -29,6 +40,11 @@ const Index = () => {
       document.documentElement.classList.add("dark");
     }
   }, []);
+
+  // Set filtered memories when memories change
+  useEffect(() => {
+    setFilteredMemories(memories);
+  }, [memories]);
 
   const handleEnterDemoMode = () => {
     const mockMemories = getMockMemories();
@@ -48,18 +64,18 @@ const Index = () => {
   };
 
   const currentMemoryIndex = selectedMemory
-    ? memories.findIndex((m) => m.id === selectedMemory.id)
+    ? filteredMemories.findIndex((m) => m.id === selectedMemory.id)
     : -1;
 
   const handleNextMemory = () => {
-    if (currentMemoryIndex < memories.length - 1) {
-      setSelectedMemory(memories[currentMemoryIndex + 1]);
+    if (currentMemoryIndex < filteredMemories.length - 1) {
+      setSelectedMemory(filteredMemories[currentMemoryIndex + 1]);
     }
   };
 
   const handlePreviousMemory = () => {
     if (currentMemoryIndex > 0) {
-      setSelectedMemory(memories[currentMemoryIndex - 1]);
+      setSelectedMemory(filteredMemories[currentMemoryIndex - 1]);
     }
   };
 
@@ -73,6 +89,16 @@ const Index = () => {
     toast({
       title: "Notes saved",
       description: "Your personal notes have been saved.",
+    });
+  };
+
+  const handleUpdatePeople = (memoryId: string, people: string[]) => {
+    setMemories((prev) =>
+      prev.map((m) => (m.id === memoryId ? { ...m, people } : m))
+    );
+    toast({
+      title: "People updated",
+      description: "Tagged people have been updated.",
     });
   };
 
@@ -91,6 +117,52 @@ const Index = () => {
       });
     }
   };
+
+  const navigationItems = [
+    { icon: Grid3X3, label: "Grid View", mode: "memories" as ViewMode },
+    { icon: Clock, label: "Timeline", mode: "timeline" as ViewMode },
+    { icon: Map, label: "Map View", mode: "map" as ViewMode },
+    { icon: BarChart3, label: "Statistics", mode: "statistics" as ViewMode },
+    { icon: Users, label: "People", mode: "people" as ViewMode },
+  ];
+
+  const NavigationSidebar = ({ mobile = false }) => (
+    <div className="space-y-2 p-4">
+      <h2 className="text-lg font-semibold mb-4">Navigation</h2>
+      {navigationItems.map((item) => (
+        <Button
+          key={item.mode}
+          variant={viewMode === item.mode ? "default" : "ghost"}
+          className="w-full justify-start gap-2"
+          onClick={() => {
+            setViewMode(item.mode);
+            if (mobile) setSidebarOpen(false);
+          }}
+        >
+          <item.icon className="w-4 h-4" />
+          {item.label}
+        </Button>
+      ))}
+      <div className="pt-4 mt-4 border-t">
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2"
+          onClick={() => setAmbientModeOpen(true)}
+        >
+          <Tv className="w-4 h-4" />
+          Ambient Mode
+        </Button>
+        <Button
+          variant="outline"
+          className="w-full justify-start gap-2 mt-2"
+          onClick={handleExportPDF}
+        >
+          <Download className="w-4 h-4" />
+          Export PDF
+        </Button>
+      </div>
+    </div>
+  );
 
   if (viewMode === "landing") {
     return (
@@ -224,126 +296,141 @@ const Index = () => {
     );
   }
 
-  if (viewMode === "timeline") {
-    return (
-      <div className="min-h-screen py-12 px-4">
-        <header className="absolute top-4 right-4">
-          <DarkModeToggle />
-        </header>
-        <div className="max-w-6xl mx-auto">
-          <div className="flex items-center justify-between mb-12">
-            <h1 className="text-foreground">Memory Timeline</h1>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                onClick={() => setAmbientModeOpen(true)} 
-                className="text-base"
-                aria-label="Start ambient mode"
-              >
-                <Tv className="w-5 h-5 mr-2" />
-                Ambient Mode
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={handleExportPDF} 
-                className="text-base"
-                aria-label="Export as PDF"
-              >
-                <Download className="w-5 h-5 mr-2" />
-                Export PDF
-              </Button>
-              <Button variant="outline" onClick={() => setViewMode("memories")} className="text-base">
-                Grid View
-              </Button>
-            </div>
-          </div>
-
-          <Timeline memories={memories} onMemoryClick={handleMemoryClick} />
-        </div>
-
-        <MemoryViewer
-          memory={selectedMemory}
-          isOpen={viewerOpen}
-          onClose={() => setViewerOpen(false)}
-          onNext={handleNextMemory}
-          onPrevious={handlePreviousMemory}
-          hasNext={currentMemoryIndex < memories.length - 1}
-          hasPrevious={currentMemoryIndex > 0}
-          onUpdateNotes={handleUpdateNotes}
-        />
-
-        <AmbientMode
-          memories={memories}
-          isOpen={ambientModeOpen}
-          onClose={() => setAmbientModeOpen(false)}
-        />
-      </div>
-    );
-  }
-
+  // Main app layout with sidebar (for all other views)
   return (
-    <div className="min-h-screen py-12 px-4">
-      <header className="absolute top-4 right-4">
-        <DarkModeToggle />
-      </header>
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-12">
-          <div>
-            <h1 className="mb-2 text-foreground">Your Memories</h1>
-            <p className="text-lg text-muted-foreground">
-              {memories.length} memories reconstructed
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setAmbientModeOpen(true)}
-              className="text-base"
-              aria-label="Start ambient mode"
-            >
-              <Tv className="w-5 h-5 mr-2" />
-              Ambient
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleExportPDF}
-              className="text-base"
-              aria-label="Export as PDF"
-            >
-              <Download className="w-5 h-5 mr-2" />
-              Export
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setViewMode("timeline")}
-              className="text-base"
-            >
-              <Clock className="w-5 h-5 mr-2" />
-              Timeline
-            </Button>
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {memories.map((memory) => (
-            <div key={memory.id} className="animate-slideUp">
-              <MemoryCard memory={memory} onClick={() => handleMemoryClick(memory)} />
+    <div className="min-h-screen flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block w-64 border-r border-border bg-card/50">
+        <div className="sticky top-0 h-screen overflow-y-auto">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="w-6 h-6 text-primary" />
+              <h1 className="text-xl font-bold">Neural Recovery</h1>
             </div>
-          ))}
+            <p className="text-sm text-muted-foreground">{memories.length} memories</p>
+          </div>
+          <NavigationSidebar />
         </div>
-      </div>
+      </aside>
 
+      {/* Mobile Sidebar */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent side="left" className="w-64 p-0">
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Brain className="w-6 h-6 text-primary" />
+              <h1 className="text-xl font-bold">Neural Recovery</h1>
+            </div>
+            <p className="text-sm text-muted-foreground">{memories.length} memories</p>
+          </div>
+          <NavigationSidebar mobile />
+        </SheetContent>
+      </Sheet>
+
+      {/* Main Content */}
+      <main className="flex-1">
+        {/* Header */}
+        <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              <h2 className="text-xl font-semibold">
+                {viewMode === "memories" && "Grid View"}
+                {viewMode === "timeline" && "Timeline"}
+                {viewMode === "map" && "Map View"}
+                {viewMode === "statistics" && "Statistics"}
+                {viewMode === "people" && "People Recognition"}
+              </h2>
+            </div>
+            <DarkModeToggle />
+          </div>
+        </header>
+
+        {/* Content Area */}
+        <div className="p-4 md:p-8">
+          {/* Collaborative Mode Notice */}
+          {viewMode === "people" && (
+            <Card className="p-6 mb-6 bg-primary/5 border-primary/20">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-primary mt-0.5" />
+                <div>
+                  <h3 className="font-semibold mb-2">Want Collaborative Features?</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Enable Lovable Cloud to unlock collaborative mode where family members can add
+                    context, corrections, and contribute to shared memory collections with real-time sync.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cloud features include: user authentication, database storage, and real-time collaboration.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Search/Filter - Show on memories, timeline, and map views */}
+          {(viewMode === "memories" || viewMode === "timeline" || viewMode === "map") && (
+            <div className="mb-6">
+              <SearchFilter
+                memories={memories}
+                onFilterChange={setFilteredMemories}
+              />
+            </div>
+          )}
+
+          {/* View-specific content */}
+          {viewMode === "memories" && (
+            <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredMemories.map((memory) => (
+                <div key={memory.id} className="animate-slideUp">
+                  <MemoryCard memory={memory} onClick={() => handleMemoryClick(memory)} />
+                </div>
+              ))}
+              {filteredMemories.length === 0 && (
+                <div className="col-span-full text-center py-12 text-muted-foreground">
+                  No memories match your filters
+                </div>
+              )}
+            </div>
+          )}
+
+          {viewMode === "timeline" && (
+            <Timeline memories={filteredMemories} onMemoryClick={handleMemoryClick} />
+          )}
+
+          {viewMode === "map" && (
+            <MapView memories={filteredMemories} onMemoryClick={handleMemoryClick} />
+          )}
+
+          {viewMode === "statistics" && (
+            <Statistics memories={memories} />
+          )}
+
+          {viewMode === "people" && (
+            <PeopleTagging memories={memories} onUpdateMemory={handleUpdatePeople} />
+          )}
+        </div>
+      </main>
+
+      {/* Memory Viewer Dialog */}
       <MemoryViewer
         memory={selectedMemory}
         isOpen={viewerOpen}
         onClose={() => setViewerOpen(false)}
         onNext={handleNextMemory}
         onPrevious={handlePreviousMemory}
-        hasNext={currentMemoryIndex < memories.length - 1}
+        hasNext={currentMemoryIndex < filteredMemories.length - 1}
         hasPrevious={currentMemoryIndex > 0}
         onUpdateNotes={handleUpdateNotes}
       />
 
+      {/* Ambient Mode */}
       <AmbientMode
         memories={memories}
         isOpen={ambientModeOpen}
